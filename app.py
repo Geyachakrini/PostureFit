@@ -38,13 +38,15 @@ if run:
             # Draw landmarks
             # Make it Writable again
             image.flags.writeable = True
-            image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+            
 
             if results.pose_landmarks:
                 mp_drawing.draw_landmarks(
                     image,
                     results.pose_landmarks,
-                    mp_pose.POSE_CONNECTIONS
+                    mp_pose.POSE_CONNECTIONS,
+                    mp_drawing.DrawingSpec(color=(255,0,255),thickness=2,circle_radius=4),
+                    mp_drawing.DrawingSpec(color=(203, 192, 255),thickness=2,circle_radius=4)
                 )
 
             FRAME_WINDOW.image(image)
