@@ -41,6 +41,20 @@ if run:
             
 
             if results.pose_landmarks:
+                landmarks = results.pose_landmarks.landmark
+                landmark_array = np.array(
+        [[lm.x, lm.y, lm.z] for lm in landmarks]
+    )
+
+                
+                right_hip = landmark_array[24]
+                right_knee = landmark_array[26]
+                right_ankle = landmark_array[28]
+
+                st.write("Right Hip:", right_hip)
+                st.write("Right Knee:", right_knee)
+                st.write("Right Ankle:", right_ankle)
+
                 mp_drawing.draw_landmarks(
                     image,
                     results.pose_landmarks,
