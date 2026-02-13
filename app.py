@@ -23,6 +23,12 @@ FRAME_WINDOW = st.image([])
 if "angle_history" not in st.session_state:
     st.session_state.angle_history = []
 
+if "rep_count" not in st.session_state:
+    st.session_state.rep_count = 0
+
+if "squat_state" not in st.session_state:
+    st.session_state.squat_state = "UP"
+
 
 if run:
     cap = cv2.VideoCapture(0)
@@ -69,7 +75,24 @@ if run:
                     st.session_state.angle_history.pop(0)
                 # Smoothed angle
                 smoothed_angle = np.mean(st.session_state.angle_history)
+                # Define Thresholds
+                threshold_low = 90
+                threshold_high = 160
+                # State Machine Logic
+                if smoothed_angle < threshold_low:
+                    st.session_state.squat_state = "DOWN"
 
+                if smoothed_angle > threshold_high and st.session_state.squat_state == "DOWN":
+                    st.session_state.squat_state = "UP"
+                    st.session_state.rep_count += 1
+                cv2.putText(image,
+                            f"Reps: {st.session_state.rep_count}",
+                            (30,50),
+                            cv2.FONT_HERSHEY_SIMPLEX,
+                            1,
+                            (255,0,255),
+                            2,
+                            cv2.LINE_AA)
                 h, w, _ = image.shape
                 knee_pixel = (int(right_knee[0] * w), int(right_knee[1] * h))
 
