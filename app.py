@@ -20,6 +20,10 @@ run = st.checkbox("Start Camera")
 
 FRAME_WINDOW = st.image([])
 
+if "angle_history" not in st.session_state:
+    st.session_state.angle_history = []
+
+
 if run:
     cap = cv2.VideoCapture(0)
 
@@ -58,12 +62,20 @@ if run:
                 right_ankle = landmark_array[28][:2]
 
                 knee_angle = calculate_angle(right_hip, right_knee, right_ankle)
+                st.session_state.angle_history.append(knee_angle)
+
+                # Keep only last 10 values
+                if len(st.session_state.angle_history) > 10:
+                    st.session_state.angle_history.pop(0)
+                # Smoothed angle
+                smoothed_angle = np.mean(st.session_state.angle_history)
+
                 h, w, _ = image.shape
                 knee_pixel = (int(right_knee[0] * w), int(right_knee[1] * h))
 
                 cv2.putText(
                         image,
-                        str(int(knee_angle)),
+                        str(int(smoothed_angle)),
                         knee_pixel,
                         cv2.FONT_HERSHEY_SIMPLEX,
                         0.7,
