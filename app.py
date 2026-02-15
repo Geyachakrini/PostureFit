@@ -62,10 +62,12 @@ if run:
                 landmarks = results.pose_landmarks.landmark
                 landmark_array = np.array([[lm.x, lm.y, lm.z] for lm in landmarks])
 
-                
+                right_shoulder = landmark_array[12][:2]
                 right_hip = landmark_array[24][:2]
                 right_knee = landmark_array[26][:2]
                 right_ankle = landmark_array[28][:2]
+
+                back_angle = calculate_angle(right_shoulder, right_hip, right_knee)
 
                 knee_angle = calculate_angle(right_hip, right_knee, right_ankle)
                 st.session_state.angle_history.append(knee_angle)
@@ -85,6 +87,7 @@ if run:
                 if smoothed_angle > threshold_high and st.session_state.squat_state == "DOWN":
                     st.session_state.squat_state = "UP"
                     st.session_state.rep_count += 1
+                
                 cv2.putText(image,
                             f"Reps: {st.session_state.rep_count}",
                             (30,50),
@@ -93,6 +96,7 @@ if run:
                             (255,0,255),
                             2,
                             cv2.LINE_AA)
+                
                 h, w, _ = image.shape
                 knee_pixel = (int(right_knee[0] * w), int(right_knee[1] * h))
 
@@ -106,7 +110,31 @@ if run:
                         2,
                         cv2.LINE_AA
                         )
+                
+                good_depth = smoothed_angle < 100
+                good_back = back_angle > 150
 
+                if st.session_state.squat_state == "DOWN":
+                    if good_depth and good_back:
+                        feedback = "Good Form"
+                        color = (0, 255, 0)
+                    elif not good_back:
+                        feedback = "Straighten Your Back"
+                        color = (255, 223, 0)
+                    else:
+                        feedback = "Go Lower"
+                        color = (255, 223, 0)
+
+                    cv2.putText(
+                        image,
+                        feedback,
+                        (30, 100),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.9,
+                        color,
+                        2,
+                        cv2.LINE_AA)  
+                      
                 mp_drawing.draw_landmarks(
                     image,
                     results.pose_landmarks,
