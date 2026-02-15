@@ -23,6 +23,9 @@ FRAME_WINDOW = st.image([])
 if "angle_history" not in st.session_state:
     st.session_state.angle_history = []
 
+if "back_angle_history" not in st.session_state:
+    st.session_state.back_angle_history=[]
+
 if "rep_count" not in st.session_state:
     st.session_state.rep_count = 0
 
@@ -68,6 +71,7 @@ if run:
                 right_ankle = landmark_array[28][:2]
 
                 back_angle = calculate_angle(right_shoulder, right_hip, right_knee)
+                st.session_state.back_angle_history.append(back_angle)
 
                 knee_angle = calculate_angle(right_hip, right_knee, right_ankle)
                 st.session_state.angle_history.append(knee_angle)
@@ -78,7 +82,7 @@ if run:
                 # Smoothed angle
                 smoothed_angle = np.mean(st.session_state.angle_history)
                 # Define Thresholds
-                threshold_low = 90
+                threshold_low = 100
                 threshold_high = 160
                 # State Machine Logic
                 if smoothed_angle < threshold_low:
@@ -110,9 +114,24 @@ if run:
                         2,
                         cv2.LINE_AA
                         )
+                if len(st.session_state.back_angle_history) > 10:
+                    st.session_state.back_angle_history.pop(0)
+                # Smoothed angle
                 
-                good_depth = smoothed_angle < 100
-                good_back = back_angle > 150
+                smoothed_back_angle = np.mean(st.session_state.back_angle_history)
+                
+                back_pixel = (int(right_hip[0] * w),int(right_hip[1] * h))
+                cv2.putText(image,
+                            str(int(smoothed_back_angle)),
+                            back_pixel,
+                            cv2.FONT_HERSHEY_SIMPLEX,
+                            0.7,
+                            (255,0,255),
+                            2,
+                            cv2.LINE_AA)
+                
+                good_depth = smoothed_angle < 110
+                good_back = smoothed_back_angle > 110
 
                 if st.session_state.squat_state == "DOWN":
                     if good_depth and good_back:
