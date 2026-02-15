@@ -32,6 +32,11 @@ if "rep_count" not in st.session_state:
 if "squat_state" not in st.session_state:
     st.session_state.squat_state = "UP"
 
+if "current_rep_scores" not in st.session_state:
+    st.session_state.current_rep_scores = []
+
+if "rep_scores" not in st.session_state:
+    st.session_state.rep_scores = []
 
 if run:
     cap = cv2.VideoCapture(0)
@@ -91,7 +96,12 @@ if run:
                 if smoothed_angle > threshold_high and st.session_state.squat_state == "DOWN":
                     st.session_state.squat_state = "UP"
                     st.session_state.rep_count += 1
-                
+                    if st.session_state.current_rep_scores:
+                        avg_score = int(np.mean(st.session_state.current_rep_scores))
+                        st.session_state.rep_scores.append(avg_score)
+
+                    st.session_state.current_rep_scores = []
+
                 cv2.putText(image,
                             f"Reps: {st.session_state.rep_count}",
                             (30,50),
@@ -133,6 +143,9 @@ if run:
                 good_depth = smoothed_angle < 110
                 good_back = smoothed_back_angle > 110
 
+                ideal_knee_angle = 80
+                ideal_back_angle = 120
+
                 if st.session_state.squat_state == "DOWN":
                     if good_depth and good_back:
                         feedback = "Good Form"
@@ -153,7 +166,33 @@ if run:
                         color,
                         2,
                         cv2.LINE_AA)  
-                      
+                
+
+
+                    knee_error = abs(smoothed_angle - ideal_knee_angle)
+                    back_error = abs(smoothed_back_angle - ideal_back_angle)
+
+                    knee_score = max(0, 100 - knee_error * 2)
+                    back_score = max(0, 100 - back_error * 1.5)
+
+                    form_score = int((knee_score + back_score) / 2)
+                    st.session_state.current_rep_scores.append(form_score)
+
+                    if st.session_state.rep_scores:
+                        last_score = st.session_state.rep_scores[-1]
+                    else:
+                        last_score=0
+                    cv2.putText(
+                        image,
+                        f"Score: {last_score}",
+                        (30, 150),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.9,
+                        (0, 255, 255),
+                        2,
+                        cv2.LINE_AA)
+
+
                 mp_drawing.draw_landmarks(
                     image,
                     results.pose_landmarks,
