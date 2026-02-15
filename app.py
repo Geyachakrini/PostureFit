@@ -191,6 +191,37 @@ if run:
                         (0, 255, 255),
                         2,
                         cv2.LINE_AA)
+                    
+                    if st.session_state.rep_scores:
+                        overall_avg = int(np.mean(st.session_state.rep_scores))
+                    
+                    if len(st.session_state.rep_scores) > 1:
+                        consistency = int(100 - np.std(st.session_state.rep_scores))
+                    else:
+                        consistency = 100
+                    
+                    consistency = max(0, consistency)
+
+                    if len(st.session_state.rep_scores) >= 3:
+                        cv2.putText(
+                                image,
+                                f"Avgerage Score: {overall_avg}",
+                                (30, 180),
+                                cv2.FONT_HERSHEY_SIMPLEX,
+                                0.8,
+                                (0, 255, 0),
+                                2,
+                                cv2.LINE_AA)
+
+                        cv2.putText(
+                            image,
+                            f"Consistency: {consistency}",
+                            (30, 210),
+                            cv2.FONT_HERSHEY_SIMPLEX,
+                            0.8,
+                            (255, 255, 0),
+                            2,
+                            cv2.LINE_AA)
 
 
                 mp_drawing.draw_landmarks(
