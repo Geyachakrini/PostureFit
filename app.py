@@ -2,6 +2,7 @@ import streamlit as st
 import cv2
 import mediapipe as mp
 import numpy as np
+import time
 def calculate_angle(a, b, c):
     ba = a - b
     bc = c - b
@@ -37,6 +38,15 @@ if "current_rep_scores" not in st.session_state:
 
 if "rep_scores" not in st.session_state:
     st.session_state.rep_scores = []
+
+if "down_start_time" not in st.session_state:
+    st.session_state.down_start_time = None
+
+if "up_start_time" not in st.session_state:
+    st.session_state.up_start_time = None
+
+if "last_tempo_feedback" not in st.session_state:
+    st.session_state.last_tempo_feedback = ""
 
 if run:
     cap = cv2.VideoCapture(0)
@@ -90,12 +100,27 @@ if run:
                 threshold_low = 100
                 threshold_high = 160
                 # State Machine Logic
-                if smoothed_angle < threshold_low:
+
+                current_time = time.time()
+
+                if smoothed_angle < threshold_low and st.session_state.squat_state == "UP":
                     st.session_state.squat_state = "DOWN"
+                    st.session_state.down_start_time = current_time
 
                 if smoothed_angle > threshold_high and st.session_state.squat_state == "DOWN":
                     st.session_state.squat_state = "UP"
                     st.session_state.rep_count += 1
+
+                    up_time = current_time - st.session_state.down_start_time
+                    if up_time < 0.5:
+                        tempo_feedback = "Too Fast"
+                    elif up_time < 1.2:
+                        tempo_feedback = "Good Tempo"
+                    else:
+                        tempo_feedback = "Slow & Controlled"
+
+                    st.session_state.last_tempo_feedback = tempo_feedback
+
                     if st.session_state.current_rep_scores:
                         avg_score = int(np.mean(st.session_state.current_rep_scores))
                         st.session_state.rep_scores.append(avg_score)
@@ -160,15 +185,13 @@ if run:
                     cv2.putText(
                         image,
                         feedback,
-                        (30, 100),
+                        (30, 90),
                         cv2.FONT_HERSHEY_SIMPLEX,
                         0.9,
                         color,
                         2,
                         cv2.LINE_AA)  
                 
-
-
                     knee_error = abs(smoothed_angle - ideal_knee_angle)
                     back_error = abs(smoothed_back_angle - ideal_back_angle)
 
@@ -185,7 +208,7 @@ if run:
                     cv2.putText(
                         image,
                         f"Score: {last_score}",
-                        (30, 150),
+                        (30, 130),
                         cv2.FONT_HERSHEY_SIMPLEX,
                         0.9,
                         (0, 255, 255),
@@ -206,7 +229,7 @@ if run:
                         cv2.putText(
                                 image,
                                 f"Avgerage Score: {overall_avg}",
-                                (30, 180),
+                                (30, 170),
                                 cv2.FONT_HERSHEY_SIMPLEX,
                                 0.8,
                                 (0, 255, 0),
@@ -223,6 +246,15 @@ if run:
                             2,
                             cv2.LINE_AA)
 
+                    cv2.putText(
+                            image,
+                            f"Tempo: {st.session_state.last_tempo_feedback}",
+                            (30, 250),
+                            cv2.FONT_HERSHEY_SIMPLEX,
+                            0.8,
+                            (255, 255, 255),
+                            2,
+                            cv2.LINE_AA)
 
                 mp_drawing.draw_landmarks(
                     image,
