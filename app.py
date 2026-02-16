@@ -21,8 +21,11 @@ run = st.checkbox("Start Camera")
 
 FRAME_WINDOW = st.image([])
 
-if "angle_history" not in st.session_state:
-    st.session_state.angle_history = []
+if "right_knee_angle_history" not in st.session_state:
+    st.session_state.right_knee_angle_history = []
+
+if "left_knee_angle_history" not in st.session_state:
+    st.session_state.left_knee_angle_history = []
 
 if "back_angle_history" not in st.session_state:
     st.session_state.back_angle_history=[]
@@ -85,21 +88,41 @@ if run:
                 right_knee = landmark_array[26][:2]
                 right_ankle = landmark_array[28][:2]
 
+                left_shoulder = landmark_array[11][:2]
+                left_hip = landmark_array[23][:2]
+                left_knee = landmark_array[25][:2]
+                left_ankle = landmark_array[27][:2]
+                
                 back_angle = calculate_angle(right_shoulder, right_hip, right_knee)
                 st.session_state.back_angle_history.append(back_angle)
 
-                knee_angle = calculate_angle(right_hip, right_knee, right_ankle)
-                st.session_state.angle_history.append(knee_angle)
+                right_knee_angle = calculate_angle(right_hip, right_knee, right_ankle)
+                left_knee_angle  = calculate_angle(left_hip, left_knee, left_ankle)
 
-                # Keep only last 10 values
-                if len(st.session_state.angle_history) > 10:
-                    st.session_state.angle_history.pop(0)
-                # Smoothed angle
-                smoothed_angle = np.mean(st.session_state.angle_history)
-                # Define Thresholds
+                st.session_state.right_knee_angle_history.append(right_knee_angle)
+                st.session_state.left_knee_angle_history.append(left_knee_angle)
+
+                
+                if len(st.session_state.right_knee_angle_history) > 10:
+                    st.session_state.right_knee_angle_history.pop(0)
+                if len(st.session_state.left_knee_angle_history) > 10:
+                    st.session_state.left_knee_angle_history.pop(0)
+
+
+                smoothed_angle = np.mean(st.session_state.right_knee_angle_history)
+                smoothed_left_knee  = np.mean(st.session_state.left_knee_angle_history)
+                
                 threshold_low = 100
                 threshold_high = 160
-                # State Machine Logic
+                
+                knee_difference = abs(smoothed_angle - smoothed_left_knee)
+
+                if knee_difference < 10:
+                    symmetry_feedback = "Balanced"
+                elif knee_difference < 20:
+                    symmetry_feedback = "Slight Imbalance"
+                else:
+                    symmetry_feedback = "Uneven Squat"
 
                 current_time = time.time()
 
@@ -255,6 +278,16 @@ if run:
                             (255, 255, 255),
                             2,
                             cv2.LINE_AA)
+                    cv2.putText(
+                            image,
+                            f"Symmetry: {symmetry_feedback}",
+                            (30, 290),
+                            cv2.FONT_HERSHEY_SIMPLEX,
+                            0.8,
+                            (200, 200, 200),
+                            2,
+                            cv2.LINE_AA)
+
 
                 mp_drawing.draw_landmarks(
                     image,
