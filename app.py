@@ -51,6 +51,10 @@ if "up_start_time" not in st.session_state:
 if "last_tempo_feedback" not in st.session_state:
     st.session_state.last_tempo_feedback = ""
 
+if "torso_history" not in st.session_state:
+    st.session_state.torso_history = []
+
+
 if run:
     cap = cv2.VideoCapture(0)
 
@@ -92,7 +96,15 @@ if run:
                 left_hip = landmark_array[23][:2]
                 left_knee = landmark_array[25][:2]
                 left_ankle = landmark_array[27][:2]
+
+                mid_shoulder = (right_shoulder + left_shoulder) / 2
+                mid_hip = (right_hip + left_hip) / 2
+
+                vertical_point = np.array([mid_hip[0], mid_hip[1] - 0.1])
                 
+                torso_angle = calculate_angle(mid_shoulder, mid_hip, vertical_point)
+                st.session_state.torso_history.append(torso_angle)
+
                 back_angle = calculate_angle(right_shoulder, right_hip, right_knee)
                 st.session_state.back_angle_history.append(back_angle)
 
@@ -107,11 +119,16 @@ if run:
                     st.session_state.right_knee_angle_history.pop(0)
                 if len(st.session_state.left_knee_angle_history) > 10:
                     st.session_state.left_knee_angle_history.pop(0)
-
+                if len(st.session_state.back_angle_history) > 10:
+                    st.session_state.back_angle_history.pop(0)
+                if len(st.session_state.torso_history) > 10:
+                    st.session_state.torso_history.pop(0)
 
                 smoothed_angle = np.mean(st.session_state.right_knee_angle_history)
                 smoothed_left_knee  = np.mean(st.session_state.left_knee_angle_history)
-                
+                smoothed_back_angle = np.mean(st.session_state.back_angle_history)
+                smoothed_torso = np.mean(st.session_state.torso_history)
+
                 threshold_low = 100
                 threshold_high = 160
                 
@@ -172,11 +189,7 @@ if run:
                         2,
                         cv2.LINE_AA
                         )
-                if len(st.session_state.back_angle_history) > 10:
-                    st.session_state.back_angle_history.pop(0)
-                # Smoothed angle
-                
-                smoothed_back_angle = np.mean(st.session_state.back_angle_history)
+
                 
                 back_pixel = (int(right_hip[0] * w),int(right_hip[1] * h))
                 cv2.putText(image,
@@ -190,7 +203,8 @@ if run:
                 
                 good_depth = smoothed_angle < 110
                 good_back = smoothed_back_angle > 110
-
+                good_torso = smoothed_torso > 90
+                
                 ideal_knee_angle = 80
                 ideal_back_angle = 120
 
