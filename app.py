@@ -209,7 +209,13 @@ if run:
                 cv2.putText(image, f"Reps: {st.session_state.rep_count}",
                             (30, 50), cv2.FONT_HERSHEY_SIMPLEX,
                             1, (255, 0, 255), 2, cv2.LINE_AA)
+                
+                #----------------------------------
+                # Display Knee and Hip angles
+                # ---------------------------------
+
                 h, w, _ = image.shape 
+                
                 knee_pixel = (int(right_knee[0] * w), int(right_knee[1] * h)) 
                 cv2.putText( image, str(int(smoothed_right_knee)), knee_pixel, cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 255), 2, cv2.LINE_AA ) 
 
