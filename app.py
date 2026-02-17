@@ -1,3 +1,11 @@
+# ============================================================
+# PostureFit - Live Pose Detection (Squats)
+# Clean Structured Version
+# ============================================================
+
+# -------------------------
+# Imports
+# -------------------------
 import streamlit as st
 import cv2
 import mediapipe as mp
@@ -5,48 +13,55 @@ import numpy as np
 import time
 
 
-# ==============================
+# ============================================================
 # Utility Functions
-# ==============================
+# ============================================================
 
 def calculate_angle(a, b, c):
+    """
+    Calculate angle (in degrees) between three points.
+    """
     ba = a - b
     bc = c - b
 
     cosine_angle = np.dot(ba, bc) / (np.linalg.norm(ba) * np.linalg.norm(bc))
     cosine_angle = np.clip(cosine_angle, -1.0, 1.0)
-    angle = np.degrees(np.arccos(cosine_angle))
 
-    return angle
+    return np.degrees(np.arccos(cosine_angle))
 
 
-# ==============================
-# Streamlit UI Setup
-# ==============================
+# ============================================================
+# UI – Header & Styling
+# ============================================================
 
 st.markdown(
-    "<h1 style='text-align: center; margin-bottom: 40px;'>PostureFit - Live Pose Detection</h1>",
+    "<h1 style='text-align: center; margin-bottom: 40px;'>"
+    "PostureFit - Live Pose Detection</h1>",
     unsafe_allow_html=True
 )
-st.markdown("<div style='height:3px;background:linear-gradient(to right,#00F5A0,#00D9F5);margin-bottom:30px;'></div>",
-             unsafe_allow_html=True)
 
+st.markdown(
+    "<div style='height:3px;background:linear-gradient(to right,#00F5A0,#00D9F5);"
+    "margin-bottom:30px;'></div>",
+    unsafe_allow_html=True
+)
+
+# Animated Gradient Background
 st.markdown("""
 <style>
 
 /* Main animated gradient background */
 .stApp {
-    background: linear-gradient(-45deg, 
-        #0f2027, 
-        #0b0f1a, 
-        #111827, 
+    background: linear-gradient(-45deg,
+        #0f2027,
+        #0b0f1a,
+        #111827,
         #0f2027);
     background-size: 400% 400%;
     animation: gradientMove 20s ease infinite;
     color: white;
 }
 
-/* Smooth gradient animation */
 @keyframes gradientMove {
     0% { background-position: 0% 50%; }
     50% { background-position: 100% 50%; }
@@ -61,8 +76,9 @@ st.markdown("""
     height: 100%;
     top: 0;
     left: 0;
-    background: radial-gradient(circle at 30% 30%, rgba(0,245,160,0.08), transparent 60%),
-                radial-gradient(circle at 70% 70%, rgba(0,217,245,0.08), transparent 60%);
+    background:
+        radial-gradient(circle at 30% 30%, rgba(0,245,160,0.08), transparent 60%),
+        radial-gradient(circle at 70% 70%, rgba(0,217,245,0.08), transparent 60%);
     pointer-events: none;
     z-index: -1;
 }
@@ -70,37 +86,31 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-
-
+# Minor additional body styling
 st.markdown("""
-    <style>
-    body {
-        background: radial-gradient(circle at top, #0f2027, #0b0f1a 60%, #000000);
-        color: white;
-    }
-
-    .stMarkdown h1 {
-        font-weight: 700;
-    }
-    </style>
+<style>
+body {
+    background: radial-gradient(circle at top, #0f2027, #0b0f1a 60%, #000000);
+    color: white;
+}
+.stMarkdown h1 {
+    font-weight: 700;
+}
+</style>
 """, unsafe_allow_html=True)
 
 
-
-
-
-
-# ==============================
+# ============================================================
 # MediaPipe Setup
-# ==============================
+# ============================================================
 
 mp_pose = mp.solutions.pose
 mp_drawing = mp.solutions.drawing_utils
 
 
-# ==============================
+# ============================================================
 # Session State Initialization
-# ==============================
+# ============================================================
 
 session_defaults = {
     "right_knee_angle_history": [],
@@ -121,6 +131,9 @@ for key, value in session_defaults.items():
         st.session_state[key] = value
 
 
+# ============================================================
+# Layout
+# ============================================================
 
 left_col, spacer_col, right_col = st.columns([3, 0.3, 2])
 
@@ -142,9 +155,11 @@ with right_col:
     symmetry_placeholder = st.empty()
 
 graph_placeholder = st.empty()
-# ==============================
-# Main Camera Loop
-# ==============================
+
+
+# ============================================================
+# Camera Processing Loop
+# ============================================================
 
 if run:
 
@@ -162,9 +177,9 @@ if run:
                 st.write("Camera not working")
                 break
 
-            # --------------------------------
+            # -------------------------
             # Preprocessing
-            # --------------------------------
+            # -------------------------
             image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             image.flags.writeable = False
             results = pose.process(image)
@@ -172,7 +187,9 @@ if run:
 
             if results.pose_landmarks:
 
+                # -------------------------
                 # Landmark Extraction
+                # -------------------------
                 landmarks = results.pose_landmarks.landmark
                 landmark_array = np.array([[lm.x, lm.y, lm.z] for lm in landmarks])
 
@@ -186,17 +203,22 @@ if run:
                 left_knee = landmark_array[25]
                 left_ankle = landmark_array[27]
 
+                # Midpoints for torso
                 mid_shoulder = ((right_shoulder + left_shoulder) / 2)[:2]
                 mid_hip = ((right_hip + left_hip) / 2)[:2]
                 vertical_point = np.array([mid_hip[0], mid_hip[1] - 0.1])
 
+                # -------------------------
                 # Angle Calculations
+                # -------------------------
                 torso_angle = calculate_angle(mid_shoulder, mid_hip, vertical_point)
                 back_angle = calculate_angle(right_shoulder, right_hip, right_knee)
                 right_knee_angle = calculate_angle(right_hip, right_knee, right_ankle)
                 left_knee_angle = calculate_angle(left_hip, left_knee, left_ankle)
 
-                # Smoothing Buffers
+                # -------------------------
+                # Smoothing (last 10 frames)
+                # -------------------------
                 st.session_state.torso_history.append(torso_angle)
                 st.session_state.back_angle_history.append(back_angle)
                 st.session_state.right_knee_angle_history.append(right_knee_angle)
@@ -216,64 +238,70 @@ if run:
                 smoothed_back_angle = np.mean(st.session_state.back_angle_history)
                 smoothed_torso = np.mean(st.session_state.torso_history)
 
+                # ==================================================
+                # Everything below remains IDENTICAL logic
+                # ==================================================
+
                 h, w, _ = image.shape
 
-                # Pixel coordinates (use x,y only for placement)
                 right_knee_pixel = (
                     int(right_knee[0] * w),
-                    int(right_knee[1] * h))
+                    int(right_knee[1] * h)
+                )
 
                 left_knee_pixel = (
                     int(left_knee[0] * w),
-                    int(left_knee[1] * h))
+                    int(left_knee[1] * h)
+                )
 
                 mid_hip_pixel = (
                     int(mid_hip[0] * w),
-                    int(mid_hip[1] * h))
+                    int(mid_hip[1] * h)
+                )
 
-                # Small vertical offset so text doesn’t overlap joints
                 offset = 20
 
-                # Right Knee Angle
                 cv2.putText(
                     image,
                     f"R: {int(smoothed_right_knee)}°",
                     (right_knee_pixel[0], right_knee_pixel[1] - offset),
                     cv2.FONT_HERSHEY_SIMPLEX,
                     0.6,
-                    (0, 255, 255),   # Yellow
+                    (0, 255, 255),
                     2,
                     cv2.LINE_AA
                 )
 
-                # Left Knee Angle
                 cv2.putText(
                     image,
                     f"L: {int(smoothed_left_knee)}°",
                     (left_knee_pixel[0], left_knee_pixel[1] - offset),
                     cv2.FONT_HERSHEY_SIMPLEX,
                     0.6,
-                    (255, 0, 255),   # Purple
+                    (255, 0, 255),
                     2,
                     cv2.LINE_AA
                 )
 
-                # Torso Angle
                 cv2.putText(
                     image,
                     f"T: {int(smoothed_torso)}°",
                     (mid_hip_pixel[0], mid_hip_pixel[1] - offset),
                     cv2.FONT_HERSHEY_SIMPLEX,
                     0.7,
-                    (0, 255, 0),     # Green
+                    (0, 255, 0),
                     2,
                     cv2.LINE_AA
                 )
+
+                # -------------------------
                 # Symmetry
+                # -------------------------
                 symmetry_feedback = "Balanced"
+
                 if st.session_state.squat_state == "DOWN":
                     knee_difference = abs(smoothed_right_knee - smoothed_left_knee)
-                    
+
                     if knee_difference < 10:
                         symmetry_feedback = "Balanced"
                     elif knee_difference < 20:
@@ -281,7 +309,9 @@ if run:
                     else:
                         symmetry_feedback = "Uneven Squat"
 
-                # Safe metric defaults
+                # -------------------------
+                # Metrics Defaults
+                # -------------------------
                 if st.session_state.rep_scores:
                     last_score = st.session_state.rep_scores[-1]
                     overall_avg = int(np.mean(st.session_state.rep_scores))
@@ -296,7 +326,9 @@ if run:
 
                 consistency = max(0, consistency)
 
-                # State Machine
+                # -------------------------
+                # State Machine (Rep Counter)
+                # -------------------------
                 threshold_low = 95
                 threshold_high = 110
                 current_time = time.time()
@@ -308,11 +340,13 @@ if run:
                     st.session_state.down_start_time = current_time
 
                 if avg_knee_angle > threshold_high and st.session_state.squat_state == "DOWN":
+
                     st.session_state.squat_state = "UP"
                     st.session_state.rep_count += 1
 
                     up_time = current_time - st.session_state.down_start_time
-                    tempo_feedback="_"
+                    tempo_feedback = "_"
+
                     if up_time < 0.5:
                         tempo_feedback = "Too Fast"
                     elif up_time < 1.2:
@@ -328,10 +362,13 @@ if run:
 
                     st.session_state.current_rep_scores = []
 
+                # -------------------------
                 # Form Evaluation
+                # -------------------------
                 feedback = "—"
 
                 if st.session_state.squat_state == "DOWN":
+
                     good_depth = smoothed_right_knee < 110
                     good_back = smoothed_back_angle > 110
 
@@ -352,10 +389,12 @@ if run:
                     form_score = int((knee_score + back_score) / 2)
                     st.session_state.current_rep_scores.append(form_score)
 
-                # Update Metrics
+                # -------------------------
+                # Metric UI Display
+                # -------------------------
                 def metric_row(label, value, color="#FFFFFF"):
                     return f"""
-                            <div style="
+                        <div style="
                             display:flex;
                             justify-content:space-between;
                             padding:6px 0;
@@ -365,9 +404,8 @@ if run:
                                 {value}
                             </span>
                         </div>
-                        """
+                    """
 
-# Feedback color logic
                 if feedback == "Good Form":
                     feedback_color = "#00F5A0"
                 elif feedback in ["Straighten Your Back", "Go Lower"]:
@@ -383,8 +421,9 @@ if run:
                 consistency_placeholder.markdown(metric_row("Consistency", consistency), unsafe_allow_html=True)
                 symmetry_placeholder.markdown(metric_row("Symmetry", symmetry_feedback), unsafe_allow_html=True)
 
-
-                # Draw Landmarks
+                # -------------------------
+                # Draw Pose Landmarks
+                # -------------------------
                 mp_drawing.draw_landmarks(
                     image,
                     results.pose_landmarks,
@@ -398,15 +437,22 @@ if run:
     cap.release()
 
 
+# ============================================================
+# Performance Summary Section
+# ============================================================
+
 st.markdown("<hr style='border: 1px solid #222;'>", unsafe_allow_html=True)
 
 st.markdown("<h2 style='text-align:center;'>Performance Summary</h2>", unsafe_allow_html=True)
 
-st.markdown("<div style='height:3px;background:linear-gradient(to right,#00F5A0,#00D9F5);margin-bottom:30px;'></div>",
-             unsafe_allow_html=True)
-
+st.markdown(
+    "<div style='height:3px;background:linear-gradient(to right,#00F5A0,#00D9F5);"
+    "margin-bottom:30px;'></div>",
+    unsafe_allow_html=True
+)
 
 graph_col1, graph_col2 = st.columns(2)
+
 with graph_col1:
     st.markdown("#### Avg Score per Rep")
     if st.session_state.rep_scores:
@@ -417,7 +463,7 @@ with graph_col1:
 with graph_col2:
     st.markdown("#### Last Score vs Rep")
     if st.session_state.rep_scores:
-        rep_numbers = list(range(1, len(st.session_state.rep_scores)+1))
+        rep_numbers = list(range(1, len(st.session_state.rep_scores) + 1))
         bar_data = {
             "Rep": rep_numbers,
             "Score": st.session_state.rep_scores
