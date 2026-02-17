@@ -42,24 +42,6 @@ st.markdown("""
     .stMarkdown h1 {
         font-weight: 700;
     }
-
-    .metric-card {
-        background-color: #161A23;
-        padding: 12px 18px;
-        border-radius: 10px;
-        margin-bottom: 10px;
-    }
-
-    .metric-title {
-        font-size: 14px;
-        color: #A0A0A0;
-    }
-
-    .metric-value {
-        font-size: 20px;
-        font-weight: bold;
-        color: #FFFFFF;
-    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -91,7 +73,7 @@ session_defaults = {
     "rep_scores": [],
     "down_start_time": None,
     "up_start_time": None,
-    "last_tempo_feedback": ""
+    "last_tempo_feedback": "_"
 }
 
 for key, value in session_defaults.items():
@@ -152,18 +134,18 @@ if run:
                 landmarks = results.pose_landmarks.landmark
                 landmark_array = np.array([[lm.x, lm.y, lm.z] for lm in landmarks])
 
-                right_shoulder = landmark_array[12][:2]
-                right_hip = landmark_array[24][:2]
-                right_knee = landmark_array[26][:2]
-                right_ankle = landmark_array[28][:2]
+                right_shoulder = landmark_array[12]
+                right_hip = landmark_array[24]
+                right_knee = landmark_array[26]
+                right_ankle = landmark_array[28]
 
-                left_shoulder = landmark_array[11][:2]
-                left_hip = landmark_array[23][:2]
-                left_knee = landmark_array[25][:2]
-                left_ankle = landmark_array[27][:2]
+                left_shoulder = landmark_array[11]
+                left_hip = landmark_array[23]
+                left_knee = landmark_array[25]
+                left_ankle = landmark_array[27]
 
-                mid_shoulder = (right_shoulder + left_shoulder) / 2
-                mid_hip = (right_hip + left_hip) / 2
+                mid_shoulder = ((right_shoulder + left_shoulder) / 2)[:2]
+                mid_hip = ((right_hip + left_hip) / 2)[:2]
                 vertical_point = np.array([mid_hip[0], mid_hip[1] - 0.1])
 
                 # Angle Calculations
@@ -192,15 +174,70 @@ if run:
                 smoothed_back_angle = np.mean(st.session_state.back_angle_history)
                 smoothed_torso = np.mean(st.session_state.torso_history)
 
-                # Symmetry
-                knee_difference = abs(smoothed_right_knee - smoothed_left_knee)
+                h, w, _ = image.shape
 
-                if knee_difference < 10:
-                    symmetry_feedback = "Balanced"
-                elif knee_difference < 20:
-                    symmetry_feedback = "Slight Imbalance"
-                else:
-                    symmetry_feedback = "Uneven Squat"
+                # Pixel coordinates (use x,y only for placement)
+                right_knee_pixel = (
+                    int(right_knee[0] * w),
+                    int(right_knee[1] * h))
+
+                left_knee_pixel = (
+                    int(left_knee[0] * w),
+                    int(left_knee[1] * h))
+
+                mid_hip_pixel = (
+                    int(mid_hip[0] * w),
+                    int(mid_hip[1] * h))
+
+                # Small vertical offset so text doesn’t overlap joints
+                offset = 20
+
+                # Right Knee Angle
+                cv2.putText(
+                    image,
+                    f"R: {int(smoothed_right_knee)}°",
+                    (right_knee_pixel[0], right_knee_pixel[1] - offset),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.6,
+                    (0, 255, 255),   # Yellow
+                    2,
+                    cv2.LINE_AA
+                )
+
+                # Left Knee Angle
+                cv2.putText(
+                    image,
+                    f"L: {int(smoothed_left_knee)}°",
+                    (left_knee_pixel[0], left_knee_pixel[1] - offset),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.6,
+                    (255, 0, 255),   # Purple
+                    2,
+                    cv2.LINE_AA
+                )
+
+                # Torso Angle
+                cv2.putText(
+                    image,
+                    f"T: {int(smoothed_torso)}°",
+                    (mid_hip_pixel[0], mid_hip_pixel[1] - offset),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.7,
+                    (0, 255, 0),     # Green
+                    2,
+                    cv2.LINE_AA
+                )
+                # Symmetry
+                symmetry_feedback = "Balanced"
+                if st.session_state.squat_state == "DOWN":
+                    knee_difference = abs(smoothed_right_knee - smoothed_left_knee)
+                    
+                    if knee_difference < 10:
+                        symmetry_feedback = "Balanced"
+                    elif knee_difference < 20:
+                        symmetry_feedback = "Slight Imbalance"
+                    else:
+                        symmetry_feedback = "Uneven Squat"
 
                 # Safe metric defaults
                 if st.session_state.rep_scores:
@@ -218,20 +255,22 @@ if run:
                 consistency = max(0, consistency)
 
                 # State Machine
-                threshold_low = 100
-                threshold_high = 160
+                threshold_low = 95
+                threshold_high = 110
                 current_time = time.time()
 
-                if smoothed_right_knee < threshold_low and st.session_state.squat_state == "UP":
+                avg_knee_angle = (smoothed_right_knee + smoothed_left_knee) / 2
+
+                if avg_knee_angle < threshold_low and st.session_state.squat_state == "UP":
                     st.session_state.squat_state = "DOWN"
                     st.session_state.down_start_time = current_time
 
-                if smoothed_right_knee > threshold_high and st.session_state.squat_state == "DOWN":
+                if avg_knee_angle > threshold_high and st.session_state.squat_state == "DOWN":
                     st.session_state.squat_state = "UP"
                     st.session_state.rep_count += 1
 
                     up_time = current_time - st.session_state.down_start_time
-
+                    tempo_feedback="_"
                     if up_time < 0.5:
                         tempo_feedback = "Too Fast"
                     elif up_time < 1.2:
