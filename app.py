@@ -1,4 +1,5 @@
 import streamlit as st
+import streamlit.components.v1 as components
 import cv2
 import mediapipe as mp
 import numpy as np
@@ -31,11 +32,48 @@ st.markdown(
 st.markdown("<div style='height:3px;background:linear-gradient(to right,#00F5A0,#00D9F5);margin-bottom:30px;'></div>",
              unsafe_allow_html=True)
 
+st.markdown("""
+<style>
+.stApp {
+    background: radial-gradient(circle at top, #0f2027, #0b0f1a 60%, #000000);
+    overflow: hidden;
+}
+
+/* Star container */
+.stApp::before {
+    content: "";
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 200%;
+    height: 200%;
+    background-image:
+        radial-gradient(2px 2px at 20% 30%, white, transparent),
+        radial-gradient(1.5px 1.5px at 40% 70%, white, transparent),
+        radial-gradient(2px 2px at 60% 20%, white, transparent),
+        radial-gradient(1.5px 1.5px at 80% 80%, white, transparent),
+        radial-gradient(2px 2px at 10% 90%, white, transparent),
+        radial-gradient(1.5px 1.5px at 90% 10%, white, transparent);
+    background-repeat: repeat;
+    animation: moveStars 60s linear infinite;
+    opacity: 0.6;
+    z-index: -1;
+}
+
+/* Slow floating animation */
+@keyframes moveStars {
+    from { transform: translate(0, 0); }
+    to { transform: translate(-500px, -500px); }
+}
+</style>
+""", unsafe_allow_html=True)
+
+
 
 st.markdown("""
     <style>
     body {
-        background-color: #0E1117;
+        background: radial-gradient(circle at top, #0f2027, #0b0f1a 60%, #000000);
         color: white;
     }
 
@@ -79,6 +117,8 @@ session_defaults = {
 for key, value in session_defaults.items():
     if key not in st.session_state:
         st.session_state[key] = value
+
+
 
 left_col, spacer_col, right_col = st.columns([3, 0.3, 2])
 
