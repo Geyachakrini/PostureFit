@@ -24,10 +24,14 @@ def calculate_angle(a, b, c):
 # Streamlit UI Setup
 # ==============================
 
-st.title("PostureFit - Live Pose Detection")
+st.markdown(
+    "<h1 style='text-align: center; margin-bottom: 40px;'>PostureFit - Live Pose Detection</h1>",
+    unsafe_allow_html=True
+)
 
-run = st.checkbox("Start Camera")
-FRAME_WINDOW = st.image([])
+
+
+
 
 
 # ==============================
@@ -60,7 +64,26 @@ for key, value in session_defaults.items():
     if key not in st.session_state:
         st.session_state[key] = value
 
+left_col, spacer_col, right_col = st.columns([3, 0.3, 2])
 
+with left_col:
+    st.markdown("### Video Feed")
+    run = st.checkbox("Start Camera")
+    FRAME_WINDOW = st.image([])
+
+with right_col:
+    st.markdown("### Analysis")
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    rep_placeholder = st.empty()
+    feedback_placeholder = st.empty()
+    score_placeholder = st.empty()
+    avg_placeholder = st.empty()
+    consistency_placeholder = st.empty()
+    tempo_placeholder = st.empty()
+    symmetry_placeholder = st.empty()
+
+graph_placeholder = st.empty()
 # ==============================
 # Main Camera Loop
 # ==============================
@@ -91,66 +114,51 @@ if run:
 
             if results.pose_landmarks:
 
-                # --------------------------------
                 # Landmark Extraction
-                # --------------------------------
                 landmarks = results.pose_landmarks.landmark
                 landmark_array = np.array([[lm.x, lm.y, lm.z] for lm in landmarks])
 
-                # Right side
                 right_shoulder = landmark_array[12][:2]
                 right_hip = landmark_array[24][:2]
                 right_knee = landmark_array[26][:2]
                 right_ankle = landmark_array[28][:2]
 
-                # Left side
                 left_shoulder = landmark_array[11][:2]
                 left_hip = landmark_array[23][:2]
                 left_knee = landmark_array[25][:2]
                 left_ankle = landmark_array[27][:2]
 
-                # Midpoints
                 mid_shoulder = (right_shoulder + left_shoulder) / 2
                 mid_hip = (right_hip + left_hip) / 2
                 vertical_point = np.array([mid_hip[0], mid_hip[1] - 0.1])
 
-                # --------------------------------
                 # Angle Calculations
-                # --------------------------------
                 torso_angle = calculate_angle(mid_shoulder, mid_hip, vertical_point)
                 back_angle = calculate_angle(right_shoulder, right_hip, right_knee)
-
                 right_knee_angle = calculate_angle(right_hip, right_knee, right_ankle)
                 left_knee_angle = calculate_angle(left_hip, left_knee, left_ankle)
 
-                # --------------------------------
-                # History Buffers (Smoothing)
-                # --------------------------------
+                # Smoothing Buffers
                 st.session_state.torso_history.append(torso_angle)
                 st.session_state.back_angle_history.append(back_angle)
                 st.session_state.right_knee_angle_history.append(right_knee_angle)
                 st.session_state.left_knee_angle_history.append(left_knee_angle)
 
-                if len(st.session_state.right_knee_angle_history) > 10:
-                    st.session_state.right_knee_angle_history.pop(0)
-
-                if len(st.session_state.left_knee_angle_history) > 10:
-                    st.session_state.left_knee_angle_history.pop(0)
-
-                if len(st.session_state.back_angle_history) > 10:
-                    st.session_state.back_angle_history.pop(0)
-
-                if len(st.session_state.torso_history) > 10:
-                    st.session_state.torso_history.pop(0)
+                for key in [
+                    "torso_history",
+                    "back_angle_history",
+                    "right_knee_angle_history",
+                    "left_knee_angle_history"
+                ]:
+                    if len(st.session_state[key]) > 10:
+                        st.session_state[key].pop(0)
 
                 smoothed_right_knee = np.mean(st.session_state.right_knee_angle_history)
                 smoothed_left_knee = np.mean(st.session_state.left_knee_angle_history)
                 smoothed_back_angle = np.mean(st.session_state.back_angle_history)
                 smoothed_torso = np.mean(st.session_state.torso_history)
 
-                # --------------------------------
-                # Symmetry Detection
-                # --------------------------------
+                # Symmetry
                 knee_difference = abs(smoothed_right_knee - smoothed_left_knee)
 
                 if knee_difference < 10:
@@ -160,9 +168,22 @@ if run:
                 else:
                     symmetry_feedback = "Uneven Squat"
 
-                # --------------------------------
-                # State Machine + Tempo
-                # --------------------------------
+                # Safe metric defaults
+                if st.session_state.rep_scores:
+                    last_score = st.session_state.rep_scores[-1]
+                    overall_avg = int(np.mean(st.session_state.rep_scores))
+                else:
+                    last_score = 0
+                    overall_avg = 0
+
+                if len(st.session_state.rep_scores) > 1:
+                    consistency = int(100 - np.std(st.session_state.rep_scores))
+                else:
+                    consistency = 100
+
+                consistency = max(0, consistency)
+
+                # State Machine
                 threshold_low = 100
                 threshold_high = 160
                 current_time = time.time()
@@ -172,7 +193,6 @@ if run:
                     st.session_state.down_start_time = current_time
 
                 if smoothed_right_knee > threshold_high and st.session_state.squat_state == "DOWN":
-
                     st.session_state.squat_state = "UP"
                     st.session_state.rep_count += 1
 
@@ -193,54 +213,23 @@ if run:
 
                     st.session_state.current_rep_scores = []
 
-                # --------------------------------
-                # Form Evaluation (DOWN phase only)
-                # --------------------------------
-                good_depth = smoothed_right_knee < 110
-                good_back = smoothed_back_angle > 110
-                good_torso = smoothed_torso > 90
-
-                ideal_knee_angle = 80
-                ideal_back_angle = 120
-
-                # --------------------------------
-                # Display Information
-                # --------------------------------
-                cv2.putText(image, f"Reps: {st.session_state.rep_count}",
-                            (30, 50), cv2.FONT_HERSHEY_SIMPLEX,
-                            1, (255, 0, 255), 2, cv2.LINE_AA)
-                
-                #----------------------------------
-                # Display Knee and Hip angles
-                # ---------------------------------
-
-                h, w, _ = image.shape 
-                
-                knee_pixel = (int(right_knee[0] * w), int(right_knee[1] * h)) 
-                cv2.putText( image, str(int(smoothed_right_knee)), knee_pixel, cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 255), 2, cv2.LINE_AA ) 
-
-                back_pixel = (int(right_hip[0] * w),int(right_hip[1] * h)) 
-                cv2.putText(image, str(int(smoothed_back_angle)), back_pixel, cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255,0,255), 2, cv2.LINE_AA)
+                # Form Evaluation
+                feedback = "—"
 
                 if st.session_state.squat_state == "DOWN":
+                    good_depth = smoothed_right_knee < 110
+                    good_back = smoothed_back_angle > 110
 
-                    if good_depth and good_back:
-                        feedback = "Good Form"
-                        color = (0, 255, 0)
-                    elif not good_back:
-                        feedback = "Straighten Your Back"
-                        color = (255, 223, 0)
-                    else:
-                        feedback = "Go Lower"
-                        color = (255, 223, 0)
+                    if smoothed_right_knee < 140:
+                        if good_depth and good_back:
+                            feedback = "Good Form"
+                        elif not good_back:
+                            feedback = "Straighten Your Back"
+                        else:
+                            feedback = "Go Lower"
 
-                    cv2.putText(image, feedback,
-                                (30, 90),
-                                cv2.FONT_HERSHEY_SIMPLEX,
-                                0.9, color, 2, cv2.LINE_AA)
-
-                    knee_error = abs(smoothed_right_knee - ideal_knee_angle)
-                    back_error = abs(smoothed_back_angle - ideal_back_angle)
+                    knee_error = abs(smoothed_right_knee - 80)
+                    back_error = abs(smoothed_back_angle - 120)
 
                     knee_score = max(0, 100 - knee_error * 2)
                     back_score = max(0, 100 - back_error * 1.5)
@@ -248,51 +237,16 @@ if run:
                     form_score = int((knee_score + back_score) / 2)
                     st.session_state.current_rep_scores.append(form_score)
 
-                    if st.session_state.rep_scores:
-                        last_score = st.session_state.rep_scores[-1]
-                    else:
-                        last_score = 0
+                # Update Metrics
+                rep_placeholder.markdown(f"**Reps:** {st.session_state.rep_count}")
+                feedback_placeholder.markdown(f"**Feedback:** {feedback}")
+                score_placeholder.markdown(f"**Last Rep Score:** {last_score}")
+                tempo_placeholder.markdown(f"**Tempo:** {st.session_state.last_tempo_feedback}")
+                avg_placeholder.markdown(f"**Average Score:** {overall_avg}")
+                consistency_placeholder.markdown(f"**Consistency:** {consistency}")
+                symmetry_placeholder.markdown(f"**Symmetry:** {symmetry_feedback}")
 
-                    cv2.putText(image, f"Score: {last_score}",
-                                (30, 130),
-                                cv2.FONT_HERSHEY_SIMPLEX,
-                                0.9, (0, 255, 255), 2, cv2.LINE_AA)
-
-                    if st.session_state.rep_scores:
-                        overall_avg = int(np.mean(st.session_state.rep_scores))
-
-                    if len(st.session_state.rep_scores) > 1:
-                        consistency = int(100 - np.std(st.session_state.rep_scores))
-                    else:
-                        consistency = 100
-
-                    consistency = max(0, consistency)
-
-                    if len(st.session_state.rep_scores) >= 3:
-
-                        cv2.putText(image, f"Average Score: {overall_avg}",
-                                    (30, 170),
-                                    cv2.FONT_HERSHEY_SIMPLEX,
-                                    0.8, (0, 255, 0), 2, cv2.LINE_AA)
-
-                        cv2.putText(image, f"Consistency: {consistency}",
-                                    (30, 210),
-                                    cv2.FONT_HERSHEY_SIMPLEX,
-                                    0.8, (255, 255, 0), 2, cv2.LINE_AA)
-
-                    cv2.putText(image, f"Tempo: {st.session_state.last_tempo_feedback}",
-                                (30, 250),
-                                cv2.FONT_HERSHEY_SIMPLEX,
-                                0.8, (255, 255, 255), 2, cv2.LINE_AA)
-
-                    cv2.putText(image, f"Symmetry: {symmetry_feedback}",
-                                (30, 290),
-                                cv2.FONT_HERSHEY_SIMPLEX,
-                                0.8, (200, 200, 200), 2, cv2.LINE_AA)
-
-                # --------------------------------
                 # Draw Landmarks
-                # --------------------------------
                 mp_drawing.draw_landmarks(
                     image,
                     results.pose_landmarks,
@@ -304,3 +258,27 @@ if run:
             FRAME_WINDOW.image(image)
 
     cap.release()
+
+
+st.markdown("---")
+st.markdown("### Performance Graphs")
+
+graph_col1, graph_col2 = st.columns(2)
+with graph_col1:
+    st.markdown("#### Avg Score per Rep")
+    if st.session_state.rep_scores:
+        st.line_chart(st.session_state.rep_scores)
+    else:
+        st.write("No reps yet")
+
+with graph_col2:
+    st.markdown("#### Last Score vs Rep")
+    if st.session_state.rep_scores:
+        rep_numbers = list(range(1, len(st.session_state.rep_scores)+1))
+        bar_data = {
+            "Rep": rep_numbers,
+            "Score": st.session_state.rep_scores
+        }
+        st.bar_chart(bar_data)
+    else:
+        st.write("No reps yet")
