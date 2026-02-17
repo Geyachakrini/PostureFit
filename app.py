@@ -34,37 +34,40 @@ st.markdown("<div style='height:3px;background:linear-gradient(to right,#00F5A0,
 
 st.markdown("""
 <style>
+
+/* Main animated gradient background */
 .stApp {
-    background: radial-gradient(circle at top, #0f2027, #0b0f1a 60%, #000000);
-    overflow: hidden;
+    background: linear-gradient(-45deg, 
+        #0f2027, 
+        #0b0f1a, 
+        #111827, 
+        #0f2027);
+    background-size: 400% 400%;
+    animation: gradientMove 20s ease infinite;
+    color: white;
 }
 
-/* Star container */
-.stApp::before {
+/* Smooth gradient animation */
+@keyframes gradientMove {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+/* Soft glowing overlay */
+.stApp::after {
     content: "";
     position: fixed;
+    width: 100%;
+    height: 100%;
     top: 0;
     left: 0;
-    width: 200%;
-    height: 200%;
-    background-image:
-        radial-gradient(2px 2px at 20% 30%, white, transparent),
-        radial-gradient(1.5px 1.5px at 40% 70%, white, transparent),
-        radial-gradient(2px 2px at 60% 20%, white, transparent),
-        radial-gradient(1.5px 1.5px at 80% 80%, white, transparent),
-        radial-gradient(2px 2px at 10% 90%, white, transparent),
-        radial-gradient(1.5px 1.5px at 90% 10%, white, transparent);
-    background-repeat: repeat;
-    animation: moveStars 60s linear infinite;
-    opacity: 0.6;
+    background: radial-gradient(circle at 30% 30%, rgba(0,245,160,0.08), transparent 60%),
+                radial-gradient(circle at 70% 70%, rgba(0,217,245,0.08), transparent 60%);
+    pointer-events: none;
     z-index: -1;
 }
 
-/* Slow floating animation */
-@keyframes moveStars {
-    from { transform: translate(0, 0); }
-    to { transform: translate(-500px, -500px); }
-}
 </style>
 """, unsafe_allow_html=True)
 
