@@ -28,6 +28,40 @@ st.markdown(
     "<h1 style='text-align: center; margin-bottom: 40px;'>PostureFit - Live Pose Detection</h1>",
     unsafe_allow_html=True
 )
+st.markdown("<div style='height:3px;background:linear-gradient(to right,#00F5A0,#00D9F5);margin-bottom:30px;'></div>",
+             unsafe_allow_html=True)
+
+
+st.markdown("""
+    <style>
+    body {
+        background-color: #0E1117;
+        color: white;
+    }
+
+    .stMarkdown h1 {
+        font-weight: 700;
+    }
+
+    .metric-card {
+        background-color: #161A23;
+        padding: 12px 18px;
+        border-radius: 10px;
+        margin-bottom: 10px;
+    }
+
+    .metric-title {
+        font-size: 14px;
+        color: #A0A0A0;
+    }
+
+    .metric-value {
+        font-size: 20px;
+        font-weight: bold;
+        color: #FFFFFF;
+    }
+    </style>
+""", unsafe_allow_html=True)
 
 
 
@@ -238,13 +272,36 @@ if run:
                     st.session_state.current_rep_scores.append(form_score)
 
                 # Update Metrics
-                rep_placeholder.markdown(f"**Reps:** {st.session_state.rep_count}")
-                feedback_placeholder.markdown(f"**Feedback:** {feedback}")
-                score_placeholder.markdown(f"**Last Rep Score:** {last_score}")
-                tempo_placeholder.markdown(f"**Tempo:** {st.session_state.last_tempo_feedback}")
-                avg_placeholder.markdown(f"**Average Score:** {overall_avg}")
-                consistency_placeholder.markdown(f"**Consistency:** {consistency}")
-                symmetry_placeholder.markdown(f"**Symmetry:** {symmetry_feedback}")
+                def metric_row(label, value, color="#FFFFFF"):
+                    return f"""
+                            <div style="
+                            display:flex;
+                            justify-content:space-between;
+                            padding:6px 0;
+                            border-bottom:1px solid #1F2937;">
+                            <span style="color:#A0AEC0; font-size:14px;">{label}</span>
+                            <span style="font-weight:600; color:{color}; font-size:15px;">
+                                {value}
+                            </span>
+                        </div>
+                        """
+
+# Feedback color logic
+                if feedback == "Good Form":
+                    feedback_color = "#00F5A0"
+                elif feedback in ["Straighten Your Back", "Go Lower"]:
+                    feedback_color = "#FFC107"
+                else:
+                    feedback_color = "#FFFFFF"
+
+                rep_placeholder.markdown(metric_row("Reps", st.session_state.rep_count), unsafe_allow_html=True)
+                feedback_placeholder.markdown(metric_row("Feedback", feedback, feedback_color), unsafe_allow_html=True)
+                score_placeholder.markdown(metric_row("Last Score", last_score), unsafe_allow_html=True)
+                tempo_placeholder.markdown(metric_row("Tempo", st.session_state.last_tempo_feedback), unsafe_allow_html=True)
+                avg_placeholder.markdown(metric_row("Average Score", overall_avg), unsafe_allow_html=True)
+                consistency_placeholder.markdown(metric_row("Consistency", consistency), unsafe_allow_html=True)
+                symmetry_placeholder.markdown(metric_row("Symmetry", symmetry_feedback), unsafe_allow_html=True)
+
 
                 # Draw Landmarks
                 mp_drawing.draw_landmarks(
@@ -260,8 +317,13 @@ if run:
     cap.release()
 
 
-st.markdown("---")
-st.markdown("### Performance Graphs")
+st.markdown("<hr style='border: 1px solid #222;'>", unsafe_allow_html=True)
+
+st.markdown("<h2 style='text-align:center;'>Performance Summary</h2>", unsafe_allow_html=True)
+
+st.markdown("<div style='height:3px;background:linear-gradient(to right,#00F5A0,#00D9F5);margin-bottom:30px;'></div>",
+             unsafe_allow_html=True)
+
 
 graph_col1, graph_col2 = st.columns(2)
 with graph_col1:
